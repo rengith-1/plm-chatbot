@@ -1,19 +1,24 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from config.config import OPENAI_API_KEY, DEFAULT_MODEL, MAX_HISTORY_LENGTH
 from .plm_client import OpenBOMClient
+from .auth import OpenBOMAuth
+import re
 
 class PLMChatbot:
-    def __init__(self):
-        self.plm_client = OpenBOMClient()
+    def __init__(self, auth_handler: OpenBOMAuth):
+        self.auth_handler = auth_handler
+        self.plm_client = OpenBOMClient(auth_handler)
         self.chat_model = ChatOpenAI(
             model_name=DEFAULT_MODEL,
             openai_api_key=OPENAI_API_KEY,
             temperature=0.7
         )
         self.conversation_history: List[Dict[str, str]] = []
-        self.system_prompt = """You are a helpful assistant specialized in providing information about parts and products from OpenBOM. 
+        self.system_prompt = f"""You are a helpful assistant specialized in providing information about parts and products from OpenBOM. 
+        You are connected to {self.auth_handler.user_info.get('company_name', 'your company')}'s OpenBOM instance.
+        
         You can:
         - Search for parts and provide detailed information
         - Check part availability and inventory
@@ -110,4 +115,63 @@ class PLMChatbot:
         """
         Clear the conversation history
         """
-        self.conversation_history = [] 
+        self.conversation_history = []
+
+    async def handle_message(self, message: str) -> str:
+        """Process user message and return response"""
+        try:
+            # Check if user is asking about BOMs
+            if re.search(r'boms?|bill of materials?', message.lower()):
+                boms = self.plm_client.get_boms()
+                if boms:
+                    return self._format_bom_list(boms)
+                return "I couldn't find any BOMs at the moment."
+                
+            # Check if user is asking about catalogs
+            if re.search(r'catalogs?|parts?', message.lower()):
+                catalogs = self.plm_client.get_catalogs()
+                if catalogs:
+                    return self._format_catalog_list(catalogs)
+                return "I couldn't find any catalogs at the moment."
+                
+            # Check if user is asking about a specific part number
+            part_match = re.search(r'part (\w+)', message.lower())
+            if part_match:
+                part_number = part_match.group(1)
+                part_details = self.plm_client.get_part_details(part_number)
+                if part_details and not part_details.get('error'):
+                    return self._format_part_details(part_details)
+                return f"I couldn't find details for part {part_number}."
+                
+            return "I can help you with information about BOMs, catalogs, and specific parts. What would you like to know?"
+            
+        except Exception as e:
+            return f"I encountered an error: {str(e)}"
+            
+    def _format_bom_list(self, boms: List[Dict]) -> str:
+        """Format BOM list into readable text"""
+        if not boms:
+            return "No BOMs found."
+            
+        response = "Here are the available BOMs:\n"
+        for bom in boms:
+            response += f"- {bom.get('name', 'Unnamed BOM')} (ID: {bom.get('id', 'N/A')})\n"
+        return response
+        
+    def _format_catalog_list(self, catalogs: List[Dict]) -> str:
+        """Format catalog list into readable text"""
+        if not catalogs:
+            return "No catalogs found."
+            
+        response = "Here are the available catalogs:\n"
+        for catalog in catalogs:
+            response += f"- {catalog.get('name', 'Unnamed Catalog')} (ID: {catalog.get('id', 'N/A')})\n"
+        return response
+        
+    def _format_part_details(self, part: Dict) -> str:
+        """Format part details into readable text"""
+        response = f"Part Details:\n"
+        for key, value in part.items():
+            if key not in ['id', '_id']:
+                response += f"- {key}: {value}\n"
+        return response 
