@@ -24,16 +24,59 @@ wheels/
 venv/
 ENV/
 env/
-
-# Environment Variables
 .env
+.venv
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+.project
+.pydevproject
+.settings/
+
+# Logs
+*.log
+logs/
+plm_chatbot.log
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Documentation
+docs/_build/
+site/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+*.bak
+*.tmp
+*.swp
+
+# Application specific
+*.session
+*.session-journal
+*.db
+*.sqlite3
+instance/
+.webassets-cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Environment variables
+.env
+.env.*
+!.env.example 
