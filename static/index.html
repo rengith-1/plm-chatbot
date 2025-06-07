@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLM Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: calc(100vh - 180px);
+        }
+        .message {
+            max-width: 80%;
+            margin: 8px;
+            padding: 12px;
+            border-radius: 12px;
+        }
+        .user-message {
+            background-color: #e2e8f0;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #4299e1;
+            color: white;
+            margin-right: auto;
+        }
+        .typing-indicator {
+            display: none;
+            margin: 8px;
+            padding: 12px;
+            border-radius: 12px;
+            background-color: #e2e8f0;
+            width: fit-content;
+        }
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-right: 3px;
+            background-color: #a0aec0;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-600">PLM Chatbot</h1>
+            <p class="text-gray-600 mt-2">Ask me anything about parts and products</p>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div id="chat-messages" class="chat-container overflow-y-auto mb-4">
+                <div class="bot-message message">
+                    Hello! I'm your PLM assistant. How can I help you today?
+                </div>
+                <div class="typing-indicator">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <input type="text" id="user-input" 
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    placeholder="Type your message here..."
+                    onkeypress="if(event.key === 'Enter') sendMessage()">
+                <button onclick="sendMessage()" 
+                    class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none">
+                    Send
+                </button>
+                <button onclick="clearHistory()" 
+                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 focus:outline-none">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const typingIndicator = document.querySelector('.typing-indicator');
+
+        function addMessage(content, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = content;
+            chatMessages.insertBefore(messageDiv, typingIndicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            typingIndicator.style.display = 'block';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            typingIndicator.style.display = 'none';
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, true);
+            userInput.value = '';
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content: message }),
+                });
+
+                const data = await response.json();
+                hideTypingIndicator();
+                addMessage(data.response, false);
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('Sorry, I encountered an error. Please try again.', false);
+                console.error('Error:', error);
+            }
+        }
+
+        async function clearHistory() {
+            try {
+                await fetch('/clear', { method: 'POST' });
+                chatMessages.innerHTML = '';
+                const welcomeMessage = document.createElement('div');
+                welcomeMessage.className = 'bot-message message';
+                welcomeMessage.textContent = "Hello! I'm your PLM assistant. How can I help you today?";
+                chatMessages.appendChild(welcomeMessage);
+                chatMessages.appendChild(typingIndicator);
+            } catch (error) {
+                console.error('Error clearing history:', error);
+            }
+        }
+
+        // Focus input on load
+        userInput.focus();
+    </script>
+</body>
+</html> 
