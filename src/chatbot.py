@@ -1,24 +1,22 @@
 from typing import List, Dict, Any, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from config.config import OPENAI_API_KEY, DEFAULT_MODEL, MAX_HISTORY_LENGTH
+from .config.config import CHATBOT_CONFIG
 from .plm_client import OpenBOMClient
 from .auth import OpenBOMAuth
 import re
 
-class PLMChatbot:
+class ChatBot:
     def __init__(self, auth_handler: OpenBOMAuth):
         self.auth_handler = auth_handler
         self.plm_client = OpenBOMClient(auth_handler)
         self.chat_model = ChatOpenAI(
-            model_name=DEFAULT_MODEL,
-            openai_api_key=OPENAI_API_KEY,
-            temperature=0.7
+            model_name=CHATBOT_CONFIG['model'],
+            openai_api_key=CHATBOT_CONFIG['api_key'],
+            temperature=CHATBOT_CONFIG['temperature']
         )
         self.conversation_history: List[Dict[str, str]] = []
         self.system_prompt = f"""You are a helpful assistant specialized in providing information about parts and products from OpenBOM. 
-        You are connected to {self.auth_handler.user_info.get('company_name', 'your company')}'s OpenBOM instance.
-        
         You can:
         - Search for parts and provide detailed information
         - Check part availability and inventory
@@ -93,7 +91,7 @@ class PLMChatbot:
         ]
         
         # Add conversation history
-        for msg in self.conversation_history[-MAX_HISTORY_LENGTH:]:
+        for msg in self.conversation_history[-CHATBOT_CONFIG['max_history_length']:]:
             if msg["role"] == "user":
                 messages.append(HumanMessage(content=msg["content"]))
             else:

@@ -2,19 +2,19 @@ import os
 import requests
 from typing import Dict, Any, Optional, List
 from .auth import OpenBOMAuth
+from .config.config import OPENBOM_API_CONFIG
 
 class OpenBOMClient:
-    def __init__(self):
-        self.base_url = "https://developer-api.openbom.com"
-        self.api_key = os.getenv("OPENBOM_API_KEY")
-        self.access_token = None
+    def __init__(self, auth_handler: OpenBOMAuth):
+        self.auth_handler = auth_handler
+        self.base_url = OPENBOM_API_CONFIG['base_url']
         self.session = requests.Session()
         self._setup_session()
 
     def _setup_session(self):
         """Set up session headers for OpenBOM API requests"""
         self.session.headers.update({
-            **self.get_headers(),
+            **self.auth_handler.get_headers(),
             'Accept': 'application/json'
         })
 
@@ -22,49 +22,10 @@ class OpenBOMClient:
         """Refresh session headers with current auth token"""
         self._setup_session()
 
-    def authenticate(self, username: str, password: str) -> bool:
-        """Authenticate with OpenBOM and get access token"""
-        try:
-            headers = {
-                "content-type": "application/json",
-                "x-openbom-appkey": self.api_key
-            }
-            
-            data = {
-                "username": username,
-                "password": password
-            }
-            
-            response = requests.post(
-                f"{self.base_url}/login",
-                headers=headers,
-                json=data
-            )
-            
-            if response.status_code == 200:
-                self.access_token = response.json()["access_token"]
-                return True
-            return False
-            
-        except Exception as e:
-            print(f"Authentication error: {str(e)}")
-            return False
-
-    def get_headers(self) -> dict:
-        """Get headers for API requests"""
-        return {
-            "content-type": "application/json",
-            "x-openbom-appkey": self.api_key,
-            "x-openbom-accesstoken": self.access_token
-        }
-
     def get_boms(self) -> Optional[list]:
         """Get list of BOMs"""
         try:
-            response = requests.get(
-                f"{self.base_url}/boms",
-                headers=self.get_headers()
-            )
+            response = self.session.get(f"{self.base_url}/boms")
             if response.status_code == 200:
                 return response.json()
             return None
@@ -75,10 +36,7 @@ class OpenBOMClient:
     def get_catalogs(self) -> Optional[list]:
         """Get list of catalogs"""
         try:
-            response = requests.get(
-                f"{self.base_url}/catalogs", 
-                headers=self.get_headers()
-            )
+            response = self.session.get(f"{self.base_url}/catalogs")
             if response.status_code == 200:
                 return response.json()
             return None
@@ -89,10 +47,7 @@ class OpenBOMClient:
     def get_bom_details(self, bom_id: str) -> Optional[dict]:
         """Get details of a specific BOM"""
         try:
-            response = requests.get(
-                f"{self.base_url}/bom/{bom_id}",
-                headers=self.get_headers()
-            )
+            response = self.session.get(f"{self.base_url}/bom/{bom_id}")
             if response.status_code == 200:
                 return response.json()
             return None
